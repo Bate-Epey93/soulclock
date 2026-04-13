@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect fill="#050a05" width="512" height="512" rx="96"/>
+  <text x="256" y="200" text-anchor="middle" font-size="48" fill="#4a6a4a" font-family="monospace" letter-spacing="8">SOUL</text>
+  <text x="256" y="320" text-anchor="middle" font-size="120" fill="#f5c842" font-family="monospace" font-weight="bold">9:00</text>
+  <text x="256" y="400" text-anchor="middle" font-size="36" fill="#4a6a4a" font-family="monospace" letter-spacing="4">CLOCK</text>
+  <circle cx="256" cy="440" r="8" fill="#ff1744"/>
+  <circle cx="290" cy="440" r="8" fill="#f5c842"/>
+  <circle cx="324" cy="440" r="8" fill="#00e676"/>
+</svg>

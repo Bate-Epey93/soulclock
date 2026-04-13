@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SoulClock">
+<meta name="theme-color" content="#050a05">
+<meta name="mobile-web-app-capable" content="yes">
+<title>SoulClock — Manifestor Work Timer</title>
+<link rel="manifest" href="manifest.json">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=VT323&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden}
+  body{background:#050a05;color:#f0e6d0;font-family:'VT323',monospace}
+  ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:#0a0f0a}::-webkit-scrollbar-thumb{background:#1a2e1a;border-radius:2px}
+
+  @keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
+  @keyframes slideUp{0%{opacity:0;transform:translateY(20px)}100%{opacity:1;transform:translateY(0)}}
+
+  #app{
+    min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;padding:20px 16px;position:relative;overflow:hidden;
+  }
+
+  /* Matrix rain - pure CSS, never re-rendered */
+  .matrix-rain{position:absolute;inset:0;overflow:hidden;pointer-events:none;opacity:.04}
+  .matrix-col{
+    position:absolute;font-family:'VT323',monospace;font-size:14px;color:#f5c842;
+    writing-mode:vertical-rl;line-height:1;animation:matrixDrip 12s linear infinite;
+  }
+  @keyframes matrixDrip{0%{transform:translateY(-100%);opacity:0}10%{opacity:1}90%{opacity:1}100%{transform:translateY(100vh);opacity:0}}
+
+  /* Meditation BG */
+  .meditation-bg{
+    position:absolute;bottom:0;left:50%;transform:translateX(-50%);
+    width:100%;max-width:420px;height:auto;opacity:.15;pointer-events:none;
+  }
+
+  .header-label{font-size:16px;letter-spacing:5px;color:#4a6a4a;text-transform:uppercase;margin-bottom:4px;z-index:1;text-shadow:0 0 10px rgba(74,106,74,.3)}
+  .header-sub{font-family:'Playfair Display',Georgia,serif;font-size:13px;color:#5a4d3a;font-style:italic;margin-bottom:24px;z-index:1}
+
+  /* Mode toggle */
+  .mode-toggle{display:flex;gap:0;margin-bottom:24px;z-index:1;border-radius:10px;overflow:hidden;border:1px solid #1a2e1a}
+  .mode-btn{
+    padding:10px 20px;background:#080f08;color:#4a6a4a;border:none;
+    font-family:'VT323',monospace;font-size:16px;letter-spacing:2px;cursor:pointer;text-transform:uppercase;transition:all .3s;
+  }
+  .mode-btn.active{background:rgba(245,200,66,.12);color:#f5c842;text-shadow:0 0 8px rgba(245,200,66,.4)}
+
+  /* Flip clock */
+  .clock-row{display:flex;align-items:center;gap:8px;margin-bottom:24px;z-index:1}
+  .flip-group{display:flex;flex-direction:column;align-items:center;gap:4px}
+  .flip-pair{display:flex;gap:3px}
+  .flip-card{position:relative;width:54px;height:76px}
+  .flip-face{
+    position:absolute;inset:0;
+    background:#0d1a0d;
+    border-radius:6px;display:flex;align-items:center;justify-content:center;
+    font-family:'VT323',monospace;font-size:56px;color:#f5c842;
+    text-shadow:0 0 12px rgba(245,200,66,.6),0 0 30px rgba(245,200,66,.15);
+    box-shadow:inset 0 1px 4px rgba(0,0,0,.6),0 2px 8px rgba(0,0,0,.4);
+    border:1px solid #1a2e1a;
+  }
+  .flip-label{font-size:13px;color:#4a6a4a;letter-spacing:3px;text-transform:uppercase}
+
+  /* Digit blur transition */
+  .flip-face span{transition:filter .15s ease-out, opacity .15s ease-out}
+  .flip-face span.blurring{filter:blur(6px);opacity:.3}
+
+  .separator{display:flex;flex-direction:column;gap:10px;justify-content:center;padding-bottom:20px}
+  .sep-dot{width:6px;height:6px;border-radius:50%;background:#f5c842;opacity:.7;box-shadow:0 0 8px rgba(245,200,66,.5)}
+
+  .progress-track{width:100%;max-width:340px;margin-bottom:20px;z-index:1}
+  .progress-bg{height:3px;background:#0d1a0d;border-radius:2px;overflow:hidden}
+  .progress-fill{height:100%;background:linear-gradient(90deg,#f5c842,#e6a817);box-shadow:0 0 10px rgba(245,200,66,.4);border-radius:2px;transition:width 1s linear;width:0}
+
+  .status-row{display:flex;gap:24px;margin-bottom:24px;z-index:1;font-size:16px;color:#4a6a4a}
+  .status-label{font-size:13px;letter-spacing:2px;color:#2a3e2a;margin-bottom:2px}
+  .status-val{color:#1a2e1a}
+  .status-val.active{color:#f5c842;text-shadow:0 0 8px rgba(245,200,66,.4)}
+
+  .btn-clock-in{
+    padding:16px 40px;background:#f5c842;color:#050a05;border:none;border-radius:12px;
+    font-family:'VT323',monospace;font-size:24px;cursor:pointer;letter-spacing:3px;
+    text-transform:uppercase;z-index:1;box-shadow:0 0 30px rgba(245,200,66,.25);
+  }
+  .btn-reset{
+    padding:12px 32px;background:transparent;color:#4a6a4a;border:1px solid #1a2e1a;
+    border-radius:10px;font-family:'VT323',monospace;font-size:18px;cursor:pointer;
+  }
+  .done-wrap{text-align:center;animation:slideUp .6s ease-out;z-index:1}
+  .done-title{font-family:'Playfair Display',Georgia,serif;font-size:24px;color:#69f0ae;margin-bottom:8px;text-shadow:0 0 20px rgba(105,240,174,.3)}
+  .done-sub{font-family:'Playfair Display',Georgia,serif;font-size:14px;color:#5a4d3a;font-style:italic;margin-bottom:20px}
+
+  .taps-section{width:100%;max-width:340px;margin-top:16px;z-index:1}
+  .taps-label{font-size:14px;letter-spacing:3px;color:#2a3e2a;text-transform:uppercase;margin-bottom:10px}
+  .taps-row{display:flex;gap:4px;flex-wrap:wrap}
+  .tap-btn{
+    width:34px;height:34px;border-radius:8px;border:1px solid #1a2e1a;background:#080f08;
+    color:#1a2e1a;font-family:'VT323',monospace;font-size:16px;cursor:default;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .tap-btn.available{border-color:#f5c842;background:rgba(245,200,66,.08);color:#f5c842;cursor:pointer;animation:pulse 2s infinite;text-shadow:0 0 6px #f5c842}
+  .tap-btn.done{border-color:#2d5a27;background:#0d1a0d;color:#69f0ae;animation:none;text-shadow:0 0 6px #69f0ae}
+
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:100;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+  .modal-card{background:#0a0f0a;border:1px solid #1a2e1a;border-radius:16px;max-width:420px;width:100%;max-height:85vh;overflow:auto;padding:28px 24px}
+  .modal-hour{font-size:16px;letter-spacing:3px;color:#f5c842;text-transform:uppercase;margin-bottom:4px;text-shadow:0 0 8px rgba(245,200,66,.4)}
+  .modal-theme{font-family:'Playfair Display',Georgia,serif;font-size:22px;font-weight:700;color:#f0e6d0;margin-bottom:12px}
+  .shadow-box{background:rgba(255,23,68,.06);border-radius:8px;padding:10px 14px;margin-bottom:16px;border-left:3px solid #ff1744}
+  .shadow-text{font-size:16px;line-height:1.5;color:#ff5252}
+  .setup-box{background:#111a11;border-radius:10px;padding:16px;margin-bottom:16px;border-left:3px solid #f5c842}
+  .setup-label{font-size:14px;letter-spacing:2px;color:#4a6a4a;text-transform:uppercase;margin-bottom:6px}
+  .setup-text{font-family:'Playfair Display',Georgia,serif;font-size:15px;line-height:1.6;color:#d4c8b0;font-style:italic}
+  .btn-begin{width:100%;padding:14px 20px;background:#f5c842;color:#050a05;border:none;border-radius:10px;font-family:'VT323',monospace;font-size:20px;cursor:pointer;letter-spacing:2px;text-transform:uppercase}
+  .step-box{background:#111a11;border-radius:10px;padding:16px;margin-bottom:16px;min-height:80px;display:flex;align-items:center}
+  .step-text{font-family:'Playfair Display',Georgia,serif;font-size:15px;line-height:1.7;color:#f0e6d0}
+  .dots-row{display:flex;gap:6px;justify-content:center;margin-bottom:16px}
+  .dot{width:8px;height:8px;border-radius:50%;background:#1a2e1a}
+  .dot.active{background:#f5c842;box-shadow:0 0 6px rgba(245,200,66,.5)}
+  .btn-row{display:flex;gap:10px}
+  .btn-back{flex:1;padding:12px;background:#111a11;color:#4a6a4a;border:1px solid #1a2e1a;border-radius:10px;font-family:'VT323',monospace;font-size:16px;cursor:pointer}
+  .btn-next{flex:2;padding:12px;background:#f5c842;color:#050a05;border:none;border-radius:10px;font-family:'VT323',monospace;font-size:18px;cursor:pointer;letter-spacing:2px;text-transform:uppercase}
+  .btn-complete{flex:2;padding:12px;background:#1a3a1a;color:#69f0ae;border:1px solid #2d5a27;border-radius:10px;font-family:'VT323',monospace;font-size:18px;cursor:pointer;letter-spacing:2px;text-transform:uppercase}
+  .footer{position:absolute;bottom:max(16px,env(safe-area-inset-bottom));z-index:1;font-size:13px;color:#1a2e1a;letter-spacing:3px;text-shadow:0 0 6px rgba(26,46,26,.3)}
+
+  .hidden{display:none!important}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Matrix rain: rendered once, never touched again -->
+  <div class="matrix-rain" id="matrixRain"></div>
+
+  <!-- Meditation SVG: rendered once -->
+  <svg class="meditation-bg" viewBox="0 0 400 600">
+    <defs>
+      <linearGradient id="wf" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#4fc3f7" stop-opacity=".9"/><stop offset="60%" stop-color="#4fc3f7" stop-opacity=".3"/><stop offset="100%" stop-color="#4fc3f7" stop-opacity="0"/></linearGradient>
+      <filter id="bg"><feGaussianBlur stdDeviation="10" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    </defs>
+    <rect x="154" y="0" width="1.5" height="600" fill="url(#wf)" opacity=".3"><animate attributeName="opacity" values=".15;.4;.15" dur="2s" repeatCount="indefinite"/></rect>
+    <rect x="167" y="0" width="1.5" height="600" fill="url(#wf)" opacity=".4"><animate attributeName="opacity" values=".18;.43;.18" dur="2.4s" repeatCount="indefinite"/></rect>
+    <rect x="179" y="0" width="1.5" height="600" fill="url(#wf)" opacity=".3"><animate attributeName="opacity" values=".21;.46;.21" dur="2.8s" repeatCount="indefinite"/></rect>
+    <rect x="191" y="0" width="1.5" height="600" fill="url(#wf)" opacity=".4"><animate attributeName="opacity" values=".24;.49;.24" dur="3.2s" repeatCount="indefinite"/></rect>
+    <rect x="199" y="0" width="1.5" height="600" fill="url(#wf)" opacity=".3"><animate attributeName="opacity" values=".27;.52;.27" dur="3.6s" repeatCount="indefinite"/></rect>
+    <rect x="207" y="0" width="1.5" height="600" fill="url(#wf)" opacity=".4"><animate attributeName="opacity" values=".3;.55;.3" dur="4s" repeatCount="indefinite"/></rect>
+    <rect x="219" y="0" width="1.5" height="600" fill="url(#wf)" opacity=".3"><animate attributeName="opacity" values=".33;.58;.33" dur="4.4s" repeatCount="indefinite"/></rect>
+    <rect x="231" y="0" width="1.5" height="600" fill="url(#wf)" opacity=".4"><animate attributeName="opacity" values=".36;.61;.36" dur="4.8s" repeatCount="indefinite"/></rect>
+    <rect x="244" y="0" width="1.5" height="600" fill="url(#wf)" opacity=".3"><animate attributeName="opacity" values=".39;.64;.39" dur="5.2s" repeatCount="indefinite"/></rect>
+    <circle cx="170" cy="515" r="2.5" fill="#4fc3f7" opacity=".25"><animate attributeName="cy" values="515;505;515" dur="1s" repeatCount="indefinite"/></circle>
+    <circle cx="185" cy="515" r="2.5" fill="#4fc3f7" opacity=".25"><animate attributeName="cy" values="515;505;515" dur="1.25s" repeatCount="indefinite"/></circle>
+    <circle cx="200" cy="515" r="2.5" fill="#4fc3f7" opacity=".25"><animate attributeName="cy" values="515;505;515" dur="1.5s" repeatCount="indefinite"/></circle>
+    <circle cx="215" cy="515" r="2.5" fill="#4fc3f7" opacity=".25"><animate attributeName="cy" values="515;505;515" dur="1.75s" repeatCount="indefinite"/></circle>
+    <circle cx="230" cy="515" r="2.5" fill="#4fc3f7" opacity=".25"><animate attributeName="cy" values="515;505;515" dur="2s" repeatCount="indefinite"/></circle>
+    <g transform="translate(200,300)">
+      <circle cx="0" cy="-95" r="22" fill="#c8bfa8"/><rect x="-5" y="-73" width="10" height="12" fill="#c8bfa8"/>
+      <path d="M-28,-61 C-30,-30 -25,10 -20,40 L20,40 C25,10 30,-30 28,-61 Z" fill="#c8bfa8"/>
+      <path d="M-28,-55 C-50,-40 -65,-15 -70,10 C-72,20 -60,25 -50,20 C-40,15 -35,10 -28,5" fill="#c8bfa8"/>
+      <path d="M28,-55 C50,-40 65,-15 70,10 C72,20 60,25 50,20 C40,15 35,10 28,5" fill="#c8bfa8"/>
+      <path d="M-20,40 C-35,50 -60,55 -65,70 C-68,80 -50,85 -30,80 C-10,75 -5,65 0,55" fill="#c8bfa8"/>
+      <path d="M20,40 C35,50 60,55 65,70 C68,80 50,85 30,80 C10,75 5,65 0,55" fill="#c8bfa8"/>
+      <ellipse cx="-55" cy="68" rx="14" ry="10" fill="#c8bfa8"/><ellipse cx="55" cy="68" rx="14" ry="10" fill="#c8bfa8"/>
+      <circle cx="0" cy="50" r="9" fill="#ff1744" filter="url(#bg)" opacity=".85"><animate attributeName="r" values="9;14;9" dur="3s" repeatCount="indefinite"/></circle><circle cx="0" cy="50" r="4" fill="#ff5252"/>
+      <circle cx="0" cy="-10" r="9" fill="#f5c842" filter="url(#bg)" opacity=".85"><animate attributeName="r" values="9;14;9" dur="3.5s" repeatCount="indefinite"/></circle><circle cx="0" cy="-10" r="4" fill="#ffe082"/>
+      <circle cx="0" cy="-35" r="9" fill="#00e676" filter="url(#bg)" opacity=".85"><animate attributeName="r" values="9;14;9" dur="4s" repeatCount="indefinite"/></circle><circle cx="0" cy="-35" r="4" fill="#69f0ae"/>
+    </g>
+    <ellipse cx="200" cy="535" rx="100" ry="12" fill="#4fc3f7" opacity=".12"><animate attributeName="rx" values="100;112;100" dur="4s" repeatCount="indefinite"/></ellipse>
+  </svg>
+
+  <!-- Header -->
+  <div class="header-label">SoulClock</div>
+  <div class="header-sub" id="headerSub">9 hours · soul-aligned · Manifestor rhythm</div>
+
+  <!-- Mode toggle -->
+  <div class="mode-toggle" id="modeToggle">
+    <button class="mode-btn active" id="btnWork" onclick="setMode('work')">9H Work</button>
+    <button class="mode-btn" id="btnFocus" onclick="setMode('focus')">2H Focus</button>
+  </div>
+
+  <!-- Flip clock -->
+  <div class="clock-row">
+    <div class="flip-group">
+      <div class="flip-pair">
+        <div class="flip-card" id="h0"><div class="flip-face"><span id="h0d">0</span></div></div>
+        <div class="flip-card" id="h1"><div class="flip-face"><span id="h1d">9</span></div></div>
+      </div>
+      <span class="flip-label">Hours</span>
+    </div>
+    <div class="separator"><div class="sep-dot"></div><div class="sep-dot"></div></div>
+    <div class="flip-group">
+      <div class="flip-pair">
+        <div class="flip-card" id="m0"><div class="flip-face"><span id="m0d">0</span></div></div>
+        <div class="flip-card" id="m1"><div class="flip-face"><span id="m1d">0</span></div></div>
+      </div>
+      <span class="flip-label">Min</span>
+    </div>
+    <div class="separator"><div class="sep-dot"></div><div class="sep-dot"></div></div>
+    <div class="flip-group">
+      <div class="flip-pair">
+        <div class="flip-card" id="s0"><div class="flip-face"><span id="s0d">0</span></div></div>
+        <div class="flip-card" id="s1"><div class="flip-face"><span id="s1d">0</span></div></div>
+      </div>
+      <span class="flip-label">Sec</span>
+    </div>
+  </div>
+
+  <!-- Progress -->
+  <div class="progress-track" id="progressWrap" style="display:none">
+    <div class="progress-bg"><div class="progress-fill" id="progressFill"></div></div>
+  </div>
+
+  <!-- Status -->
+  <div class="status-row">
+    <div style="text-align:center"><div class="status-label">CLOCKED IN</div><div class="status-val" id="valIn">--:--</div></div>
+    <div style="text-align:center"><div class="status-label">CLOCK OUT</div><div class="status-val" id="valOut">--:--</div></div>
+    <div style="text-align:center"><div class="status-label">NOW</div><div class="status-val" id="valNow" style="color:#6a8a6a">--:--</div></div>
+  </div>
+
+  <!-- Action area -->
+  <div id="actionArea">
+    <button class="btn-clock-in" onclick="clockIn()">Clock In</button>
+  </div>
+
+  <!-- Tap buttons -->
+  <div class="taps-section hidden" id="tapsSection">
+    <div class="taps-label">Soul Taps — Hourly</div>
+    <div class="taps-row" id="tapsRow"></div>
+  </div>
+
+  <!-- Modal container -->
+  <div id="modalContainer"></div>
+
+  <div class="footer">SEAT OF THE SOUL × MANIFESTOR PROTOCOL</div>
+</div>
+
+<script>
+// ===== DATA =====
+const SHADOW_LINES = [
+  "Shadow check: Are you withdrawing to feel safe? That's Aloof talking.",
+  "Shadow check: Are you performing indifference? Aloof hides need behind distance.",
+  "Shadow check: Is resentment building silently? Inverted Poor Me stores grievances.",
+  "Shadow check: Are you telling yourself nobody helps? That's the Inverted Poor Me script.",
+  "Shadow check: Are you going cold to punish someone? Aloof weaponizes silence.",
+  "Shadow check: Are you martyring yourself quietly? Inverted Poor Me feeds on unspoken sacrifice.",
+  "Shadow check: Are you checking out instead of speaking up? Aloof avoids confrontation by disappearing.",
+  "Shadow check: Are you keeping score of who cares less? That's Inverted Poor Me accounting.",
+  "Shadow check: Are you leaving before you're left? Aloof's exit strategy. You don't need it tonight.",
+];
+
+const EFT_TAPS = [
+  {hour:1,theme:"Intention",shadow:SHADOW_LINES[0],setup:"Even though I'm settling into this workday, I deeply and completely accept myself.",sequence:["Karate Chop: I set my intention now — every task I touch today carries my soul's signature.","Eyebrow: I am not just working. I am channeling.","Side of Eye: My Manifestor energy initiates with purpose.","Under Eye: I release the pressure to perform for others.","Under Nose: I work from alignment, not obligation.","Chin: My emotional authority says: wait, then move with clarity.","Collarbone: I trust the wave I rode to get here today.","Under Arm: This hour belongs to me and my authentic power."]},
+  {hour:2,theme:"Authentic Power",shadow:SHADOW_LINES[1],setup:"Even though distractions pull at me, I choose to align my personality with my soul.",sequence:["Karate Chop: Authentic power is not control — it is alignment.","Eyebrow: I align my personality with my soul's purpose right now.","Side of Eye: I do not need external validation for this work.","Under Eye: The quality I bring is mine to give freely.","Under Nose: I release the Aloof drama — I am present, not detached.","Chin: Connection does not diminish my sovereignty.","Collarbone: I choose engagement over withdrawal.","Under Arm: My 3/5 profile learns by doing. I am doing."]},
+  {hour:3,theme:"Responsible Choice",shadow:SHADOW_LINES[2],setup:"Even though I feel the weight of midday, I choose my next action consciously.",sequence:["Karate Chop: Every choice I make is a spiritual act.","Eyebrow: I choose this task with full awareness.","Side of Eye: I am not a machine — I am a soul in a body, doing work that matters.","Under Eye: I release resentment about what this work is or isn't.","Under Nose: Responsible choice means choosing love over fear, even in emails.","Chin: I honor my emotional wave — if I'm low, I slow down.","Collarbone: If I'm high, I channel that fire into creation.","Under Arm: The universe responds to conscious choice. I choose now."]},
+  {hour:4,theme:"Trust & Surrender",shadow:SHADOW_LINES[3],setup:"Even though I'm halfway through and energy shifts, I trust the process.",sequence:["Karate Chop: Halfway. I exhale. I trust what's unfolding.","Eyebrow: I surrender the need to control every outcome.","Side of Eye: Trust is not passivity — it is intelligent faith.","Under Eye: My soul knows the path even when my mind doubts.","Under Nose: I release the Inverted Poor Me — I am not a victim of this schedule.","Chin: I am the initiator. I chose to be here.","Collarbone: The second half of this day is mine to shape.","Under Arm: I trust my emotional authority to guide what comes next."]},
+  {hour:5,theme:"Energy & Boundaries",shadow:SHADOW_LINES[4],setup:"Even though fatigue whispers, I honor my energy without guilt.",sequence:["Karate Chop: My energy is sacred. I protect it without apology.","Eyebrow: Manifestors inform, then act. I inform my body: we rest when needed.","Side of Eye: Boundaries are not walls — they are architecture.","Under Eye: I do not owe anyone my depletion.","Under Nose: I choose quality over quantity in this hour.","Chin: My not-self theme is anger. I check: am I pushing against something?","Collarbone: If anger rises, it is data, not destiny.","Under Arm: I honor the boundary between effort and force."]},
+  {hour:6,theme:"Soul Purpose in the Mundane",shadow:SHADOW_LINES[5],setup:"Even though this feels routine, every moment is an opportunity for evolution.",sequence:["Karate Chop: The mundane is where the soul does its deepest work.","Eyebrow: Translation, editing, correspondence — all sacred acts of bridge-building.","Side of Eye: I am not just moving words. I am moving worlds between languages.","Under Eye: My multilingual gift is a channel for connection.","Under Nose: Pidgin, French, English, Yoruba — each tongue carries a universe.","Chin: I release the lie that only dramatic moments matter.","Collarbone: Right here, in this task, my soul is practicing its purpose.","Under Arm: The Cross of the Unexpected means breakthroughs hide in ordinary hours."]},
+  {hour:7,theme:"Intuition & the Home Stretch",shadow:SHADOW_LINES[6],setup:"Even though the end is near, I stay present rather than rushing ahead.",sequence:["Karate Chop: Two hours left. I resist the urge to check out early.","Eyebrow: Presence in the final stretch is where discipline becomes devotion.","Side of Eye: My intuition knows what still needs attention — I listen.","Under Eye: I do not abandon the work before the work is done.","Under Nose: Gate 20 energy: presence in the now, not anxiety about later.","Chin: I am building something larger than today — a rhythm for Ottawa.","Collarbone: Every disciplined hour now is a rehearsal for the life ahead.","Under Arm: I trust what my body tells me. I adjust, but I stay."]},
+  {hour:8,theme:"Gratitude & Integration",shadow:SHADOW_LINES[7],setup:"Even though I'm tired, I honor what I've built in these hours.",sequence:["Karate Chop: Eight hours in. I am grateful for my capacity.","Eyebrow: I integrate what I learned today — about the work and about myself.","Side of Eye: Gratitude is the frequency that attracts more of what serves me.","Under Eye: I thank my body for carrying me through.","Under Nose: I thank my mind for its focus.","Chin: I thank my soul for keeping me aligned when I wanted to drift.","Collarbone: The stag hunt works because each player stays until the end.","Under Arm: One more hour. I finish what I started. That is Manifestor integrity."]},
+  {hour:9,theme:"Completion & Release",shadow:SHADOW_LINES[8],setup:"Even though the day is done, I release it fully and reclaim my evening.",sequence:["Karate Chop: Nine hours. Complete. I release this day with love.","Eyebrow: I do not carry work energy into my personal time.","Side of Eye: Completion is its own reward.","Under Eye: I am not my productivity. I am a soul having a human experience.","Under Nose: Tonight I rest, create, connect — the other parts of being alive.","Chin: Marie, poetry, tapping, stillness — these are not extras. They are essential.","Collarbone: I celebrate discipline without making it a prison.","Under Arm: Tomorrow I begin again. Tonight, I am free."]},
+];
+
+const FOCUS_TAPS = [
+  {hour:1,theme:"Deep Focus Entry",shadow:"Shadow check: Are you avoiding depth by staying busy on the surface? Aloof hides in shallow motion.",setup:"Even though this block demands my full presence, I deeply and completely accept myself.",sequence:["Karate Chop: Two hours. One task. Total presence.","Eyebrow: I enter the deep water now.","Side of Eye: My Manifestor energy is not scattered — it is laser.","Under Eye: I release the need for distraction.","Under Nose: This is not endurance. This is devotion.","Chin: My emotional authority is clear. I chose this.","Collarbone: Every minute of focus compounds.","Under Arm: I am the channel. The work flows through me."]},
+  {hour:2,theme:"Completion & Return",shadow:"Shadow check: Are you silently resenting the effort? Inverted Poor Me says 'nobody sees how hard I work.'",setup:"Even though the sprint is ending, I honor the concentration I sustained.",sequence:["Karate Chop: The block is complete. I breathe.","Eyebrow: I did not fragment. I stayed whole.","Side of Eye: This focused work carries my soul's signature.","Under Eye: I release the tension I held.","Under Nose: The Cross of the Unexpected rewards those who go deep.","Chin: I return from depth gently, not abruptly.","Collarbone: Quality over speed. Depth over breadth.","Under Arm: Two hours, fully lived. That is Manifestor integrity."]},
+];
+
+// ===== STATE =====
+let mode = 'work';
+let screen = 'idle'; // idle | running | done
+let clockInTime = null;
+let remaining = 9 * 3600;
+let completedTaps = [];
+let shownTapHours = new Set();
+let activeTap = null;
+let tapStep = -1;
+let timerInterval = null;
+
+// Track displayed digits to know when to animate
+let displayedDigits = { h0:'0', h1:'9', m0:'0', m1:'0', s0:'0', s1:'0' };
+
+function getTotalSeconds() { return mode === 'work' ? 9*3600 : 2*3600; }
+function getTaps() { return mode === 'work' ? EFT_TAPS : FOCUS_TAPS; }
+function fmtTime(d) { return d ? d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}) : '--:--'; }
+
+// ===== MATRIX RAIN (once) =====
+(function initMatrix() {
+  const c = document.getElementById('matrixRain');
+  for (let i = 0; i < 15; i++) {
+    const col = document.createElement('div');
+    col.className = 'matrix-col';
+    col.style.left = (i/15*100) + '%';
+    col.style.animationDuration = (8 + i*1.5) + 's';
+    col.style.animationDelay = (i*0.7) + 's';
+    let chars = '';
+    for (let j = 0; j < 30; j++) chars += String.fromCharCode(0x30A0 + Math.floor(Math.random()*96));
+    col.textContent = chars;
+    c.appendChild(col);
+  }
+})();
+
+// ===== FLIP DIGIT =====
+function setDigit(id, newChar) {
+  const key = id;
+  const oldChar = displayedDigits[key];
+  if (oldChar === newChar) return;
+  displayedDigits[key] = newChar;
+
+  const span = document.getElementById(id + 'd');
+  // Blur out
+  span.classList.add('blurring');
+  // Swap character mid-blur, then resolve
+  setTimeout(() => {
+    span.textContent = newChar;
+    span.classList.remove('blurring');
+  }, 150);
+}
+
+// ===== TICK =====
+function tick() {
+  if (screen !== 'running') return;
+  if (remaining <= 0) {
+    remaining = 0;
+    screen = 'done';
+    clearInterval(timerInterval);
+    showDone();
+    updateClock();
+    return;
+  }
+  remaining--;
+  updateClock();
+  updateProgress();
+  checkTaps();
+}
+
+function updateClock() {
+  const h = Math.floor(remaining / 3600);
+  const m = Math.floor((remaining % 3600) / 60);
+  const s = remaining % 60;
+  const hStr = String(h).padStart(2,'0');
+  const mStr = String(m).padStart(2,'0');
+  const sStr = String(s).padStart(2,'0');
+  setDigit('h0', hStr[0]);
+  setDigit('h1', hStr[1]);
+  setDigit('m0', mStr[0]);
+  setDigit('m1', mStr[1]);
+  setDigit('s0', sStr[0]);
+  setDigit('s1', sStr[1]);
+}
+
+function updateProgress() {
+  const total = getTotalSeconds();
+  const pct = ((total - remaining) / total) * 100;
+  document.getElementById('progressFill').style.width = pct + '%';
+}
+
+function checkTaps() {
+  const total = getTotalSeconds();
+  const elapsed = total - remaining;
+  const hoursElapsed = Math.floor(elapsed / 3600);
+  const taps = getTaps();
+  const maxTaps = taps.length;
+  if (hoursElapsed > 0 && hoursElapsed <= maxTaps && !shownTapHours.has(hoursElapsed)) {
+    shownTapHours.add(hoursElapsed);
+    openTapModal(taps[hoursElapsed - 1]);
+    if ('vibrate' in navigator) navigator.vibrate([200,100,200]);
+    updateTapButtons();
+  }
+}
+
+// ===== ACTIONS =====
+function clockIn() {
+  const total = getTotalSeconds();
+  clockInTime = new Date();
+  screen = 'running';
+  remaining = total;
+  completedTaps = [];
+  shownTapHours = new Set();
+  activeTap = null;
+
+  // Update displays
+  const endTime = new Date(clockInTime.getTime() + total * 1000);
+  const valIn = document.getElementById('valIn');
+  const valOut = document.getElementById('valOut');
+  valIn.textContent = fmtTime(clockInTime);
+  valIn.classList.add('active');
+  valOut.textContent = fmtTime(endTime);
+  valOut.classList.add('active');
+
+  document.getElementById('modeToggle').classList.add('hidden');
+  document.getElementById('actionArea').innerHTML = '';
+  document.getElementById('progressWrap').style.display = '';
+  document.getElementById('tapsSection').classList.remove('hidden');
+
+  buildTapButtons();
+  updateClock();
+
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(tick, 1000);
+}
+
+function resetApp() {
+  if (timerInterval) clearInterval(timerInterval);
+  screen = 'idle';
+  clockInTime = null;
+  remaining = getTotalSeconds();
+  completedTaps = [];
+  shownTapHours = new Set();
+  activeTap = null;
+
+  const valIn = document.getElementById('valIn');
+  const valOut = document.getElementById('valOut');
+  valIn.textContent = '--:--'; valIn.classList.remove('active');
+  valOut.textContent = '--:--'; valOut.classList.remove('active');
+
+  document.getElementById('modeToggle').classList.remove('hidden');
+  document.getElementById('actionArea').innerHTML = '<button class="btn-clock-in" onclick="clockIn()">Clock In</button>';
+  document.getElementById('progressWrap').style.display = 'none';
+  document.getElementById('progressFill').style.width = '0';
+  document.getElementById('tapsSection').classList.add('hidden');
+  document.getElementById('modalContainer').innerHTML = '';
+
+  // Reset digits without animation
+  const total = getTotalSeconds();
+  const h = Math.floor(total/3600);
+  const hStr = String(h).padStart(2,'0');
+  displayedDigits = {h0:hStr[0],h1:hStr[1],m0:'0',m1:'0',s0:'0',s1:'0'};
+  document.getElementById('h0d').textContent = hStr[0];
+  document.getElementById('h1d').textContent = hStr[1];
+  document.getElementById('m0d').textContent = '0';
+  document.getElementById('m1d').textContent = '0';
+  document.getElementById('s0d').textContent = '0';
+  document.getElementById('s1d').textContent = '0';
+}
+
+function setMode(m) {
+  if (screen === 'running') return;
+  mode = m;
+  document.getElementById('btnWork').classList.toggle('active', m==='work');
+  document.getElementById('btnFocus').classList.toggle('active', m==='focus');
+  document.getElementById('headerSub').textContent =
+    m==='work' ? '9 hours · soul-aligned · Manifestor rhythm' : '2 hours · deep focus · undivided presence';
+
+  const total = getTotalSeconds();
+  remaining = total;
+  const h = Math.floor(total/3600);
+  const hStr = String(h).padStart(2,'0');
+  displayedDigits = {h0:hStr[0],h1:hStr[1],m0:'0',m1:'0',s0:'0',s1:'0'};
+  document.getElementById('h0d').textContent = hStr[0];
+  document.getElementById('h1d').textContent = hStr[1];
+  document.getElementById('m0d').textContent = '0';
+  document.getElementById('m1d').textContent = '0';
+  document.getElementById('s0d').textContent = '0';
+  document.getElementById('s1d').textContent = '0';
+}
+
+function showDone() {
+  const label = mode === 'work' ? 'Nine hours complete.' : 'Two hours complete.';
+  document.getElementById('actionArea').innerHTML =
+    '<div class="done-wrap"><div class="done-title">'+label+'</div>' +
+    '<div class="done-sub">You are free. Go be alive.</div>' +
+    '<button class="btn-reset" onclick="resetApp()">Reset</button></div>';
+  document.getElementById('tapsSection').classList.add('hidden');
+  document.getElementById('progressWrap').style.display = 'none';
+}
+
+// ===== TAP BUTTONS =====
+function buildTapButtons() {
+  const taps = getTaps();
+  const row = document.getElementById('tapsRow');
+  row.innerHTML = '';
+  taps.forEach((tap, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'tap-btn';
+    btn.id = 'tapBtn' + tap.hour;
+    btn.textContent = tap.hour;
+    btn.onclick = () => {
+      const total = getTotalSeconds();
+      const elapsed = total - remaining;
+      if (elapsed >= tap.hour * 3600) openTapModal(tap);
+    };
+    row.appendChild(btn);
+  });
+}
+
+function updateTapButtons() {
+  const taps = getTaps();
+  const total = getTotalSeconds();
+  const elapsed = total - remaining;
+  taps.forEach(tap => {
+    const btn = document.getElementById('tapBtn' + tap.hour);
+    if (!btn) return;
+    const isAvail = elapsed >= tap.hour * 3600;
+    const isDone = completedTaps.includes(tap.hour);
+    btn.className = 'tap-btn' + (isDone ? ' done' : isAvail ? ' available' : '');
+    btn.textContent = isDone ? '✓' : tap.hour;
+  });
+}
+
+// ===== TAP MODAL =====
+function openTapModal(tap) {
+  activeTap = tap;
+  tapStep = -1;
+  renderModal();
+}
+
+function closeTapModal() {
+  if (activeTap) { completedTaps.push(activeTap.hour); updateTapButtons(); }
+  activeTap = null;
+  document.getElementById('modalContainer').innerHTML = '';
+}
+
+function renderModal() {
+  if (!activeTap) return;
+  const t = activeTap;
+  const st = tapStep;
+  let html = '<div class="modal-overlay" onclick="closeTapModal()"><div class="modal-card" onclick="event.stopPropagation()">';
+  html += '<div class="modal-hour">Hour '+t.hour+' — EFT Tap</div>';
+  html += '<div class="modal-theme">'+t.theme+'</div>';
+  html += '<div class="shadow-box"><p class="shadow-text">'+t.shadow+'</p></div>';
+  html += '<div class="setup-box"><div class="setup-label">Setup Statement</div><p class="setup-text">'+t.setup+'</p></div>';
+
+  if (st === -1) {
+    html += '<button class="btn-begin" onclick="tapStep=0;renderModal()">Begin Tapping Sequence</button>';
+  } else {
+    html += '<div class="setup-label" style="margin-bottom:10px">Point '+(st+1)+' of '+t.sequence.length+'</div>';
+    html += '<div class="step-box"><p class="step-text">'+t.sequence[st]+'</p></div>';
+    html += '<div class="dots-row">';
+    t.sequence.forEach((_,i) => { html += '<div class="dot'+(i<=st?' active':'')+'"></div>'; });
+    html += '</div><div class="btn-row">';
+    if (st > 0) html += '<button class="btn-back" onclick="tapStep--;renderModal()">Back</button>';
+    if (st < t.sequence.length - 1) {
+      html += '<button class="btn-next" onclick="tapStep++;renderModal()">Next Point</button>';
+    } else {
+      html += '<button class="btn-complete" onclick="closeTapModal()">Complete</button>';
+    }
+    html += '</div>';
+  }
+  html += '</div></div>';
+  document.getElementById('modalContainer').innerHTML = html;
+}
+
+// ===== CURRENT TIME =====
+setInterval(() => {
+  document.getElementById('valNow').textContent = fmtTime(new Date());
+}, 1000);
+document.getElementById('valNow').textContent = fmtTime(new Date());
+
+// ===== SERVICE WORKER =====
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
